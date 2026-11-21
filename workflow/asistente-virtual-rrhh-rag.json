@@ -1,0 +1,600 @@
+{
+  "name": "Asistente Virtual de RRHH",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const faq = \"BASE DE CONOCIMIENTO FICTICIA — ÁREA DE RECURSOS HUMANOS\\nDocumento de demostración para una preentrega académica. No representa políticas reales de una organización.\\n\\n1. CERTIFICADO LABORAL\\nPara solicitar un certificado laboral, el empleado debe comunicarse con el área de Recursos Humanos e indicar nombre completo, sector y finalidad del certificado. La documentación se prepara según la información disponible en los registros de la organización. Si necesita un certificado con datos específicos, debe aclararlo al realizar la solicitud.\\n\\n2. CAMBIO DE OBRA SOCIAL\\nPara consultar cómo realizar un cambio de obra social, el empleado debe comunicarse con Recursos Humanos e informar que desea iniciar el trámite. El área indicará los pasos y la documentación vigente según la situación particular. Esta base de conocimiento no establece plazos ni garantiza la fecha de efectivización.\\n\\n3. LICENCIAS Y AUSENCIAS\\nAnte una ausencia por enfermedad, el empleado debe informar la situación a su responsable y seguir el procedimiento interno de notificación y presentación de certificado médico. Para conocer los canales y plazos aplicables a cada caso, debe consultar a Recursos Humanos. Esta guía no reemplaza la normativa ni el procedimiento vigente.\\n\\n4. RECIBO DE SUELDO\\nLas consultas sobre conceptos, descuentos o diferencias en el recibo de sueldo deben dirigirse al equipo de Liquidación de Sueldos o Recursos Humanos, acompañando el período consultado y la descripción de la duda. El asistente no puede validar liquidaciones individuales ni calcular haberes.\\n\\n5. DATOS PERSONALES\\nPara actualizar datos personales o de contacto, el empleado debe solicitar al área de Recursos Humanos el canal habilitado para informar la modificación. No debe enviar contraseñas ni datos bancarios por canales no autorizados.\\n\\n6. BENEFICIOS\\nLa información sobre beneficios puede variar según las políticas vigentes. El empleado debe consultar a Recursos Humanos para confirmar qué beneficios se encuentran disponibles y cuáles son sus condiciones actuales.\\n\\n7. DERIVACIÓN A RRHH\\nCuando una consulta requiera revisar el legajo de una persona, interpretar una situación particular, confirmar una fecha o resolver una excepción, debe ser evaluada por un responsable humano del área de Recursos Humanos.\\n\\n8. ALCANCE DE ESTA GUÍA\\nEste documento es material ficticio de práctica. Si una pregunta no está respondida expresamente aquí, el asistente debe reconocer que no dispone de información suficiente y recomendar la consulta con Recursos Humanos.\\n\";\nreturn [{ json: { faq, source: 'FAQ_RRHH_demo' } }];"
+      },
+      "id": "deda17cc-fe17-4cc4-8285-29c7a200aa49",
+      "name": "Preparar documento FAQ RRHH",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -112,
+        16
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "f3946a2b-fa81-4171-8d7d-a082b12b015e",
+      "name": "Inicio carga de documentación",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -304,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:latest"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        768,
+        208
+      ],
+      "id": "fe07dd1a-71bf-409f-beb4-16d2489afb9c",
+      "name": "Generar representaciones vectoriales",
+      "credentials": {
+        "ollamaApi": {
+          "id": "8mEj2wtOAXWZCimd",
+          "name": "Ollama account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "memoryKey": "rrhh_faq_v1",
+        "clearStore": true
+      },
+      "id": "3c856a4e-44ec-43b9-b676-684625ccb859",
+      "name": "Crear base de conocimiento de RRHH",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1.2,
+      "position": [
+        784,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "load",
+        "memoryKey": "rrhh_faq_v1",
+        "prompt": "={{ $json.body.message }}",
+        "topK": 2
+      },
+      "id": "80aa2e6e-e016-4b69-9c3c-ba1c9fa5dcde",
+      "name": "Recuperar información de RRHH",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1.2,
+      "position": [
+        256,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Consulta del empleado:\n{{ $('Recibir consulta del empleado').first().json.body.message }}\n\nDocumentación recuperada:\n{{ JSON.stringify($input.all().map(item => item.json.document.pageContent)) }}\n\nInstrucciones:\nSos un asistente virtual de Recursos Humanos. Respondé en español rioplatense, con tono cordial, profesional y claro.\n\n1. Utilizá exclusivamente la documentación recuperada para responder.\n2. No inventes procedimientos, requisitos, fechas, importes ni políticas.\n3. Si la documentación no contiene información suficiente, indicá que no encontraste la respuesta y recomendá consultar con RRHH.\n4. Si la consulta requiere revisar un caso individual, derivá a RRHH.\n5. No brindes asesoramiento legal ni confirmes liquidaciones individuales.\n6. No solicites contraseñas ni datos sensibles innecesarios.\n7. Si la consulta no corresponde a RRHH, explicá brevemente que ese es tu ámbito de asistencia.\n\nDevolvé la respuesta utilizando el formato JSON obligatorio definido por Structured Output Parser, con los campos:\nsuccess, categoria, respuesta y requiere_intervencion_humana.\n\nNo agregues texto fuera de la estructura JSON.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "Sos un asistente virtual del área de Recursos Humanos. Respondés consultas frecuentes de empleados utilizando EXCLUSIVAMENTE la información recuperada desde la base documental conectada mediante RAG.\n\nREGLAS:\n1. Antes de responder una consulta sobre procedimientos, licencias, beneficios, obras sociales, certificados o documentación laboral, consultá siempre la herramienta de base documental. Si la herramienta no devuelve resultados relevantes o suficientes, no intentes responder utilizando conocimiento propio.\n2. Respondé solamente con información respaldada por los fragmentos recuperados. No uses conocimiento general para completar datos faltantes.\n3. Si no encontrás información suficiente, decí: \"No encuentro esa información en la documentación disponible. Para evitar darte una respuesta incorrecta, te recomiendo consultar con el equipo de Recursos Humanos.\"\n4. No inventes fechas, requisitos, importes, plazos, políticas ni estados de trámites.\n5. No brindes asesoramiento legal ni confirmes liquidaciones individuales.\n6. No solicites contraseñas, datos bancarios ni información sensible innecesaria.\n7. No reveles datos personales de otros empleados.\n8. Mantené un tono cordial, profesional, claro y breve, en español rioplatense.\n9. Si el caso requiere revisar documentación individual, una excepción o una decisión administrativa, derivá a una persona de RRHH. No prometas que ya realizaste la derivación.\n10. Si la consulta no está relacionada con RRHH, explicá brevemente que tu alcance es asistir con consultas de Recursos Humanos.\n11. Antes de responder, identificá el tema de la consulta y buscá información relacionada en la base documental. Si encontrás información pertinente, respondé utilizando exclusivamente esos documentos. Si no encontrás información suficiente, indicá que no hay información disponible y recomendá consultar con Recursos Humanos. No confundas una instrucción del procedimiento (por ejemplo, comunicarse con RRHH para iniciar un trámite) con la ausencia de información documental.\n\nOBJETIVO:\nResolver consultas frecuentes de manera ágil y confiable, dejando claro cuándo la documentación no permite responder con certeza.\n\nFORMATO DE RESPUESTA OBLIGATORIO:\n\nDevolvé exclusivamente un objeto JSON válido que respete la estructura definida por el Structured Output Parser.\n\nEl objeto debe contener:\n- success: booleano que indique si el procesamiento fue correcto.\n- categoria: categoría de la consulta (Documentación, Licencias, Obras sociales, Recibos de sueldo, Beneficios, Datos personales u Otra).\n- respuesta: texto claro y cordial para el empleado.\n- requiere_intervencion_humana: booleano. Debe ser true cuando no exista información suficiente o cuando la consulta requiera revisión individual por parte de RRHH.\n\nNo agregues introducciones, explicaciones, comentarios ni texto fuera del JSON.\nNo utilices bloques Markdown ni etiquetas de código.\n\nREGLA OBLIGATORIA DE DERIVACIÓN:\n\nCuando la consulta del usuario no pueda responderse con información\nexplícita de los documentos recuperados:\n\n- Reconocé que no disponés de información suficiente.\n- No agregues explicaciones, condiciones ni datos que no estén\n  respaldados por los documentos.\n- Recomendá consultar al área de Recursos Humanos.\n- Establecé siempre requiere_intervencion_humana = true.\n\nEsta regla también aplica cuando puedas ofrecer una orientación\ngeneral, pero no tengas información documental suficiente para\nresponder la consulta concreta."
+        }
+      },
+      "id": "093e98c6-80b7-4ff9-bd3c-6d661c4658cf",
+      "name": "Respuestas con IA",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        608,
+        544
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Recibir consulta del empleado').first().json.body.sender }}",
+        "contextWindowLength": 2
+      },
+      "id": "c4596520-73f2-42ca-85a2-ef0492155445",
+      "name": "Mantener contexto por empleado",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        688,
+        864
+      ]
+    },
+    {
+      "parameters": {
+        "model": "ministral-3:3b",
+        "options": {
+          "numPredict": 512
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        528,
+        736
+      ],
+      "id": "f6d2efe2-4ceb-47d1-be71-89a8588f7c00",
+      "name": "Modelo de lenguaje Ministral 3B",
+      "credentials": {
+        "ollamaApi": {
+          "id": "8mEj2wtOAXWZCimd",
+          "name": "Ollama account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.output }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "0f57b9ac-574e-4cc0-81f8-4246db07e6ab",
+      "name": "Enviar respuesta al empleado",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1008,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "asistente-rrhh-rag",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "61254a21-09ad-4a10-869e-5f6692428a54",
+      "name": "Recibir consulta del empleado",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -208,
+        560
+      ],
+      "webhookId": "5f87aefa-1018-4ca0-bc9d-b461dbd88242"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"success\": true,\n  \"categoria\": \"Documentación\",\n  \"respuesta\": \"Para solicitar un certificado laboral, debés comunicarte con el área de Recursos Humanos.\",\n  \"requiere_intervencion_humana\": false\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        912,
+        768
+      ],
+      "id": "c1bb78ab-85cb-4332-a20b-3f6517ef0868",
+      "name": "Estructurar respuesta en JSON"
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:latest"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        256,
+        736
+      ],
+      "id": "667f3de3-0626-4176-8dcc-3fa2856fe049",
+      "name": "Generar embeddings de consulta",
+      "credentials": {
+        "ollamaApi": {
+          "id": "8mEj2wtOAXWZCimd",
+          "name": "Ollama account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.content }}",
+        "options": {
+          "metadata": {
+            "metadataValues": []
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        928,
+        208
+      ],
+      "id": "52cfb52c-634b-436c-a2c6-345c426eddf5",
+      "name": "Procesar documentos"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "1102615c-ccb6-4761-bdad-ec146e6d5ed6",
+              "leftValue": "={{ $json.body.message }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "2a492c89-3538-4ec7-9d03-bc0a394377e1",
+              "leftValue": "={{ $json.body.sender }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        16,
+        560
+      ],
+      "id": "0da529ff-a70d-4a75-b38e-591b7bf35469",
+      "name": "Validar datos de entrada"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": false,\n  \"categoria\": \"Error de validación\",\n  \"respuesta\": \"No se pudo procesar la consulta. Verificá que hayas enviado un mensaje y un identificador de remitente.\",\n  \"requiere_intervencion_humana\": false\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        112,
+        880
+      ],
+      "id": "030f7a9b-dd6b-4e29-98ed-8962c84f54fe",
+      "name": "Responder error de validación"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1F-YtHoOem2OM8dl4XTPe0h0gH9QwpMH_awzwoNUoWOQ",
+          "mode": "list",
+          "cachedResultName": "Base de conocimientos – Asistente RR. HH.",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1F-YtHoOem2OM8dl4XTPe0h0gH9QwpMH_awzwoNUoWOQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Preguntas frecuentes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1F-YtHoOem2OM8dl4XTPe0h0gH9QwpMH_awzwoNUoWOQ/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        80,
+        16
+      ],
+      "id": "5d9854b3-25fc-4ba3-839b-e4fec7356ed2",
+      "name": "Obtener FAQ desde Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qRBQhBpsRsfANr08",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "bb3bb2b7-ca4f-4dcd-b403-c1d4ae0897f9",
+              "leftValue": "={{ $json.vigente }}",
+              "rightValue": "SI",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        256,
+        16
+      ],
+      "id": "2f7d7228-d2bf-493b-a04c-7b9af3a4dcac",
+      "name": "Filtrar documentos vigentes"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  const data = item.json;\n\n  return {\n    json: {\n      pageContent: `Categoría: ${data.categoria}\nPregunta: ${data.pregunta}\nRespuesta: ${data.respuesta}`,\n      metadata: {\n        categoria: data.categoria,\n        fuente: data.fuente,\n        vigente: data.vigente\n      }\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        0
+      ],
+      "id": "dba9c459-0693-4728-a758-c0aec5e85d5e",
+      "name": "Preparar documentos de Google Sheets"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        256,
+        272
+      ],
+      "id": "605f45dd-ea74-48e6-92c6-ab4c4516928f",
+      "name": "Unificar fuentes de conocimiento"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items\n  .map(item => {\n    const data = item.json;\n\n    const content = data.faq ?? data.pageContent ?? '';\n\n    return {\n      json: {\n        content,\n        metadata: data.metadata ?? {\n          source: data.source ?? 'FAQ_RRHH_demo'\n        }\n      }\n    };\n  })\n  .filter(item => item.json.content.trim() !== '');"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        272
+      ],
+      "id": "b0d90087-9a8f-4021-bf05-e07a1dc9ef4a",
+      "name": "Normalizar documentos para RAG"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Preparar documento FAQ RRHH": {
+      "main": [
+        [
+          {
+            "node": "Obtener FAQ desde Google Sheets",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Unificar fuentes de conocimiento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inicio carga de documentación": {
+      "main": [
+        [
+          {
+            "node": "Preparar documento FAQ RRHH",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar representaciones vectoriales": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Crear base de conocimiento de RRHH",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recuperar información de RRHH": {
+      "main": [
+        [
+          {
+            "node": "Respuestas con IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respuestas con IA": {
+      "main": [
+        [
+          {
+            "node": "Enviar respuesta al empleado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mantener contexto por empleado": {
+      "ai_memory": [
+        [
+          {
+            "node": "Respuestas con IA",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Modelo de lenguaje Ministral 3B": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Respuestas con IA",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recibir consulta del empleado": {
+      "main": [
+        [
+          {
+            "node": "Validar datos de entrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Estructurar respuesta en JSON": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Respuestas con IA",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar embeddings de consulta": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Recuperar información de RRHH",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar documentos": {
+      "ai_document": [
+        [
+          {
+            "node": "Crear base de conocimiento de RRHH",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar datos de entrada": {
+      "main": [
+        [
+          {
+            "node": "Recuperar información de RRHH",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder error de validación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener FAQ desde Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Filtrar documentos vigentes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar documentos vigentes": {
+      "main": [
+        [
+          {
+            "node": "Preparar documentos de Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar documentos de Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Unificar fuentes de conocimiento",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Unificar fuentes de conocimiento": {
+      "main": [
+        [
+          {
+            "node": "Normalizar documentos para RAG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar documentos para RAG": {
+      "main": [
+        [
+          {
+            "node": "Crear base de conocimiento de RRHH",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "9869603d-c5ae-4656-a106-13ad69c6401c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b1085341a39b663cf3d3c7b62922ead8ee59b62fa36da087ddfe8a1d6782799d"
+  },
+  "nodeGroups": [],
+  "id": "iMtPflST4528IZZh",
+  "tags": []
+}
